@@ -22,7 +22,8 @@ final class NewTrackerCoordinator: Coordinator, NewTrackerCoordinatorProtocol {
         vc.onTrackerCreated = onTrackerCreated
         navigationController.setViewControllers([vc], animated: true)
     }
-
+    
+    // TODO: будет реализовано в следующем спринте
     func showCategorySection() {}
 
     func showScheduleSection(selectedDays: [WeekDay], onConfirm: @escaping ([WeekDay]) -> Void) {
