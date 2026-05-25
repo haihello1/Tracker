@@ -11,8 +11,17 @@ final class NewTrackerViewModel {
     var onScheduleUpdated: ((IndexPath) -> Void)?
     var onFormValidChanged: ((Bool) -> Void)?
 
-
     private(set) var selectedSchedule: [WeekDay] = []
+    private(set) var selectedEmoji: String?
+    private(set) var selectedColor: TrackerColor?
+
+    let emojis: [String] = [
+        "🙂","😻","🌺","🐶","❤️","😱",
+        "😇","😡","🥶","🤔","🙌","🍔",
+        "🥦","🏓","🥇","🎸","🏄","😪"
+    ]
+
+    let colors: [TrackerColor] = TrackerColor.allCases
 
     private var settingsList: [CellModel] = [
         CellModel(title: "Категория", subtitle: "Влажное", type: .chevron),
@@ -21,10 +30,7 @@ final class NewTrackerViewModel {
 
     private var trackerName: String = ""
 
-
-    var numberOfSettingsSections: Int {
-        settingsList.count
-    }
+    var numberOfSettingsSections: Int { settingsList.count }
 
     func cellModel(forRowAt indexPath: IndexPath) -> CellModel {
         settingsList[indexPath.row]
@@ -35,34 +41,40 @@ final class NewTrackerViewModel {
         notifyFormValidChanged()
     }
 
+    func selectEmoji(_ emoji: String) {
+        selectedEmoji = emoji
+        notifyFormValidChanged()
+    }
+
+    func selectColor(_ color: TrackerColor) {
+        selectedColor = color
+        notifyFormValidChanged()
+    }
+
     func updateSchedule(with days: [WeekDay]) {
         selectedSchedule = days
-
         let subtitle = makeScheduleSubtitle(from: days)
         settingsList[1] = CellModel(title: "Расписание", subtitle: subtitle, type: .chevron)
-
-        let indexPath = IndexPath(row: 1, section: 0)
-        onScheduleUpdated?(indexPath)
-
+        onScheduleUpdated?(IndexPath(row: 1, section: 0))
         notifyFormValidChanged()
     }
 
     func buildTracker() -> Tracker {
-        let color = TrackerColor.allCases.randomElement()!
         return Tracker(
             id: UUID(),
             name: trackerName,
-            color: color,
-            emoji: "😩",
+            color: selectedColor ?? .red,
+            emoji: selectedEmoji ?? "😊",
             schedule: selectedSchedule
         )
     }
 
-
     private var isFormValid: Bool {
         let hasText = !trackerName.trimmingCharacters(in: .whitespaces).isEmpty
         let hasSchedule = !selectedSchedule.isEmpty
-        return hasText && hasSchedule
+        let hasEmoji = selectedEmoji != nil
+        let hasColor = selectedColor != nil
+        return hasText && hasSchedule && hasEmoji && hasColor
     }
 
     private func notifyFormValidChanged() {

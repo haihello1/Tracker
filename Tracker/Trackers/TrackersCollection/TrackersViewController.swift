@@ -68,11 +68,11 @@ final class TrackersViewController: UIViewController {
         setupNavBar()
         setupConstraints()
         bindViewModel()
-        viewModel.viewDidLoad()
         showEmptyView(
             text: "Что будем отслеживать?",
             image: UIImage(resource: .emptyTrackersView)
         )
+        viewModel.viewDidLoad()
     }
 
 

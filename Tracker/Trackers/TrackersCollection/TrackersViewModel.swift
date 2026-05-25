@@ -16,7 +16,10 @@ final class TrackersViewModel {
     private weak var coordinator: TrackersCoordinatorProtocol?
 
     private var categories: [TrackerCategory] = []
-
+    
+    private let categoryStore: TrackerCategoryStore
+    private let recordStore: TrackerRecordStore
+    
     private var completedTrackers: Set<TrackerRecord> = []
     private var currentDate: Date = Date()
     private var searchQuery: String = ""
@@ -33,8 +36,26 @@ final class TrackersViewModel {
     }
 
 
-    init(coordinator: TrackersCoordinatorProtocol) {
+    init(
+        coordinator: TrackersCoordinatorProtocol,
+        categoryStore: TrackerCategoryStore,
+        recordStore: TrackerRecordStore
+    ) {
         self.coordinator = coordinator
+        self.categoryStore = categoryStore
+        self.recordStore = recordStore
+
+        self.categories = categoryStore.categories
+        self.completedTrackers = recordStore.records
+
+        categoryStore.onDataChanged = { [weak self] in
+            self?.categories = categoryStore.categories
+            self?.applyFilters()
+        }
+        recordStore.onDataChanged = { [weak self] in
+            self?.completedTrackers = recordStore.records
+            self?.applyFilters()
+        }
     }
 
     func viewDidLoad() {
@@ -89,13 +110,16 @@ final class TrackersViewModel {
 
         guard !currentDate.isFutureDay else { return }
         let record = TrackerRecord(id: tracker.id, date: currentDate)
-        if completedTrackers.contains(record) {
-            completedTrackers.remove(record)
-        } else {
-            completedTrackers.insert(record)
+        
+        do {
+            if completedTrackers.contains(record) {
+                try recordStore.deleteRecord(record)
+            } else {
+                try recordStore.addRecord(record)
+            }
+        } catch {
+            assertionFailure("Failed to toggle record: \(error)")
         }
-
-        onDataUpdated?()
     }
 
     func addTracker(_ tracker: Tracker, to categoryTitle: String) {
