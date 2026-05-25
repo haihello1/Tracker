@@ -120,7 +120,7 @@ final class TrackerCell: UICollectionViewCell {
         self.emojiLabel.text = viewModel.emoji
         self.trackerNameLabel.text = viewModel.title
         self.color = viewModel.color.uiColor
-        self.dayCounterLabel.text = "\(viewModel.completedDays) дней"
+        self.dayCounterLabel.text = makeCorrectDayEnding(viewModel.completedDays)
 
         topContainerView.backgroundColor = viewModel.color.uiColor
         completeButton.backgroundColor = viewModel.color.uiColor
@@ -133,6 +133,25 @@ final class TrackerCell: UICollectionViewCell {
         } else {
             completeButton.setImage(UIImage(systemName: "plus"), for: .normal)
             completeButton.backgroundColor = viewModel.color.uiColor
+        }
+    }
+    
+    private func makeCorrectDayEnding(_ count: Int) -> String {
+        
+        let lastTwoDigits = count % 100
+        let lastDigit = count % 10
+        
+        if lastTwoDigits >= 11 && lastTwoDigits <= 14 {
+            return "\(count) дней"
+        }
+        
+        switch lastDigit {
+        case 1:
+            return "\(count) день"
+        case 2...4:
+            return "\(count) дня"
+        default:
+            return "\(count) дней"
         }
     }
     
