@@ -11,8 +11,13 @@ final class WeekDayTransformer: ValueTransformer {
     }
 
     override func reverseTransformedValue(_ value: Any?) -> Any? {
-        guard let data = value as? Data else { return nil }
-        guard let rawValues = try? JSONDecoder().decode([String].self, from: data) else { return nil }
+        guard
+            let data = value as? Data,
+            let rawValues = try? JSONDecoder().decode([String].self, from: data)
+        else {
+            return nil
+        }
+
         return rawValues.compactMap { WeekDay(rawValue: $0) }
     }
 

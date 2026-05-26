@@ -42,10 +42,11 @@ final class MenuCell: UITableViewCell {
         titleLabel.font = .ypRegular17
     }
 
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
-
+    
     private func setupLayout() {
         contentView.addSubview(stackView)
         NSLayoutConstraint.activate([

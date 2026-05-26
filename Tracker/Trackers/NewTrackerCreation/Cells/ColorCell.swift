@@ -24,8 +24,11 @@ final class ColorCell: UICollectionViewCell {
         ])
     }
 
-    required init?(coder: NSCoder) { fatalError() }
-
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+    
     func configure(color: UIColor, isSelected: Bool) {
         colorView.backgroundColor = color
         contentView.layer.borderColor = isSelected

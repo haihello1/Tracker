@@ -28,8 +28,9 @@ final class TrackerCell: UICollectionViewCell {
         setupConstraints()
     }
     
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
     
     override func prepareForReuse() {
@@ -171,8 +172,9 @@ final class HeaderView: UICollectionReusableView {
         setupUI()
     }
     
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
     
     private func setupUI() {
@@ -182,7 +184,7 @@ final class HeaderView: UICollectionReusableView {
             headerLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 28),
             headerLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
-        headerLabel.font = UIFont.systemFont(ofSize: 19, weight: .bold)
+        headerLabel.font = .ypBold19
     }
     
     func configure(headerTitle text: String) {

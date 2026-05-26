@@ -19,7 +19,7 @@ final class NewTrackerViewController: UIViewController {
     private var selectedEmojiIndex: IndexPath?
     private var selectedColorIndex: IndexPath?
     
-    private var collectionHeightConstraint: NSLayoutConstraint!
+    private var collectionHeightConstraint: NSLayoutConstraint?
     private let maxTrackerNameLenght = 38
     private enum Section: Int, CaseIterable {
         case emoji = 0
@@ -27,8 +27,8 @@ final class NewTrackerViewController: UIViewController {
 
         var title: String {
             switch self {
-            case .emoji: return "Emoji"
-            case .color: return "Цвет"
+            case .emoji: "Emoji"
+            case .color: "Цвет"
             }
         }
     }
@@ -113,7 +113,7 @@ final class NewTrackerViewController: UIViewController {
             sectionInset * 2 +
             headerHeight
 
-        collectionHeightConstraint.constant =
+        collectionHeightConstraint?.constant =
             sectionHeight * CGFloat(Section.allCases.count)
     }
     
@@ -214,7 +214,9 @@ final class NewTrackerViewController: UIViewController {
         let warningSpacing = 8.0
         let cellsAmount = viewModel.numberOfSettingsSections
         let tableHeight = AppLayout.menuCellHeight * CGFloat(cellsAmount)
-        collectionHeightConstraint = emojiColorCollectionView.heightAnchor.constraint(equalToConstant: 0)
+
+        let heightConstraint = emojiColorCollectionView.heightAnchor.constraint(equalToConstant: 0)
+        collectionHeightConstraint = heightConstraint
         
         tableTopConstraint = menuScrollContainer.topAnchor.constraint(
             equalTo: trackerNameTextField.bottomAnchor,
@@ -246,7 +248,7 @@ final class NewTrackerViewController: UIViewController {
             emojiColorCollectionView.leadingAnchor.constraint(equalTo: menuScrollContainer.leadingAnchor),
             emojiColorCollectionView.trailingAnchor.constraint(equalTo: menuScrollContainer.trailingAnchor),
             emojiColorCollectionView.widthAnchor.constraint(equalTo: menuScrollContainer.widthAnchor),
-            collectionHeightConstraint,
+            heightConstraint,
             emojiColorCollectionView.bottomAnchor.constraint(equalTo: menuScrollContainer.bottomAnchor),
 
             buttonsStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
@@ -320,7 +322,8 @@ extension NewTrackerViewController: UICollectionViewDataSource {
     }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        switch Section(rawValue: section)! {
+        guard let sectionType = Section(rawValue: section) else { return 0 }
+        switch sectionType {
         case .emoji: return viewModel.emojis.count
         case .color: return viewModel.colors.count
         }

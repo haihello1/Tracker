@@ -11,7 +11,7 @@ final class EmptyView: UIView {
     
     private var noTrackersFoundLabel: UILabel = {
         let lbl = UILabel()
-        lbl.font = UIFont.systemFont(ofSize: 12)
+        lbl.font = .ypMedium12
         return lbl
     }()
     
@@ -30,8 +30,9 @@ final class EmptyView: UIView {
         ])
     }
     
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
     
     func configure(text: String, image: UIImage) {
