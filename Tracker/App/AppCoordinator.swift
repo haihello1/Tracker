@@ -9,20 +9,25 @@ protocol Coordinator: AnyObject {
 final class AppCoordinator: Coordinator {
     var navigationController: UINavigationController
     private var window: UIWindow?
+    private let coreDataStack: CoreDataStack
 
     var childCoordinators: [Coordinator] = []
 
-    init(window: UIWindow?) {
-        self.window = window
-        self.navigationController = UINavigationController()
-    }
+    init(window: UIWindow?, coreDataStack: CoreDataStack) {
+         self.window = window
+         self.coreDataStack = coreDataStack
+         self.navigationController = UINavigationController()
+     }
 
     func start() {
         let tabBarController = UITabBarController()
         configureTabBarAppearance(tabBarController)
 
         let trackersNC = UINavigationController()
-        let trackersCoordinator = TrackersCoordinator(navigationController: trackersNC)
+        let trackersCoordinator = TrackersCoordinator(
+            navigationController: trackersNC,
+            coreDataStack: coreDataStack
+        )
         trackersNC.tabBarItem = UITabBarItem(
             title: "Tracker",
             image: UIImage(resource: .trackerSectionLogo),

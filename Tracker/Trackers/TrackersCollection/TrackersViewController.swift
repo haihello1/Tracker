@@ -57,8 +57,9 @@ final class TrackersViewController: UIViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+        nil
     }
 
 
@@ -68,11 +69,11 @@ final class TrackersViewController: UIViewController {
         setupNavBar()
         setupConstraints()
         bindViewModel()
-        viewModel.viewDidLoad()
         showEmptyView(
             text: "Что будем отслеживать?",
             image: UIImage(resource: .emptyTrackersView)
         )
+        viewModel.viewDidLoad()
     }
 
 

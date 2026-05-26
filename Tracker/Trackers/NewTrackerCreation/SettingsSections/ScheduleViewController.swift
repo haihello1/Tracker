@@ -5,6 +5,12 @@ final class ScheduleViewController: UIViewController {
     
     var onScheduleConfirmed: (([WeekDay]) -> Void)?
     
+    var days: [WeekDay: Bool] = Dictionary(
+        uniqueKeysWithValues: WeekDay.allCases.map { ($0, false) }
+    ) {
+        didSet { updateConfirmButton() }
+    }
+    
     private let menuScrollContainer = UIScrollView()
     private let weekDaysTable = UITableView(frame: .zero, style: .plain)
     private lazy var confirmButton: UIButton = {
@@ -18,12 +24,6 @@ final class ScheduleViewController: UIViewController {
         button.addTarget(self, action: #selector(confirmTapped), for: .touchUpInside)
         return button
     }()
-    
-    var days: [WeekDay: Bool] = Dictionary(
-        uniqueKeysWithValues: WeekDay.allCases.map { ($0, false) }
-    ) {
-        didSet { updateConfirmButton() }
-    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -100,6 +100,7 @@ final class ScheduleViewController: UIViewController {
     }
 }
 
+// MARK: - UITableViewDataSource extension
 extension ScheduleViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         WeekDay.allCases.count
