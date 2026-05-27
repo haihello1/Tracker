@@ -21,8 +21,11 @@ final class EmojiCell: UICollectionViewCell {
         ])
     }
 
-    required init?(coder: NSCoder) { fatalError() }
-
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+    
     func configure(emoji: String, isSelected: Bool) {
         emojiLabel.text = emoji
         contentView.backgroundColor = isSelected ? .appBackground : .clear

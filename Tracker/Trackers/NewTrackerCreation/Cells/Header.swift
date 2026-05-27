@@ -20,8 +20,11 @@ final class SectionHeaderView: UICollectionReusableView {
         ])
     }
 
-    required init?(coder: NSCoder) { fatalError() }
-
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        nil
+    }
+    
     func configure(title: String) {
         titleLabel.text = title
     }

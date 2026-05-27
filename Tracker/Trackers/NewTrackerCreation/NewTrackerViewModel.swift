@@ -6,6 +6,16 @@ struct CellModel {
     let type: CellContent
 }
 
+enum MockData {
+    static let emojis: [String] = [
+        "🙂","😻","🌺","🐶","❤️","😱",
+        "😇","😡","🥶","🤔","🙌","🍔",
+        "🥦","🏓","🥇","🎸","🏄","😪"
+    ]
+}
+
+// MARK: - ViewModel
+
 final class NewTrackerViewModel {
 
     var onScheduleUpdated: ((IndexPath) -> Void)?
@@ -16,12 +26,7 @@ final class NewTrackerViewModel {
     private(set) var selectedEmoji: String?
     private(set) var selectedColor: TrackerColor?
 
-    let emojis: [String] = [
-        "🙂","😻","🌺","🐶","❤️","😱",
-        "😇","😡","🥶","🤔","🙌","🍔",
-        "🥦","🏓","🥇","🎸","🏄","😪"
-    ]
-
+    let emojis: [String] = MockData.emojis
     let colors: [TrackerColor] = TrackerColor.allCases
 
     private var settingsList: [CellModel] = [
