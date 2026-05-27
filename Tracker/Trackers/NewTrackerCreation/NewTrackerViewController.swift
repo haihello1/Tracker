@@ -2,7 +2,7 @@ import UIKit
 
 final class NewTrackerViewController: UIViewController {
 
-    var onTrackerCreated: ((Tracker) -> Void)?
+    var onTrackerCreated: ((Tracker, String) -> Void)?
     var coordinator: NewTrackerCoordinatorProtocol?
     private let viewModel: NewTrackerViewModel
 
@@ -18,9 +18,10 @@ final class NewTrackerViewController: UIViewController {
 
     private var selectedEmojiIndex: IndexPath?
     private var selectedColorIndex: IndexPath?
-    
+
     private var collectionHeightConstraint: NSLayoutConstraint!
-    private let maxTrackerNameLenght = 38
+    private let maxTrackerNameLength = 38
+
     private enum Section: Int, CaseIterable {
         case emoji = 0
         case color = 1
@@ -69,14 +70,6 @@ final class NewTrackerViewController: UIViewController {
     private let tableTopSpacingWithWarning = 54.0
     private var tableTopConstraint: NSLayoutConstraint!
 
-    private func calculateItemSize(for collectionView: UICollectionView) -> CGFloat {
-        let totalSpacing =
-            sectionInset * 2 +
-            (columns - 1) * itemSpacing
-
-        return (collectionView.bounds.width - totalSpacing) / columns
-    }
-    
     private let itemSpacing: CGFloat = 5
     private let sectionInset: CGFloat = 18
     private let columns: CGFloat = 6
@@ -99,24 +92,26 @@ final class NewTrackerViewController: UIViewController {
         setupWarning()
         bindViewModel()
     }
-    
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
         let itemSize = calculateItemSize(for: emojiColorCollectionView)
-
         let headerHeight: CGFloat = 50
-
         let sectionHeight =
             rowsPerSection * itemSize +
             (rowsPerSection - 1) * itemSpacing +
             sectionInset * 2 +
             headerHeight
 
-        collectionHeightConstraint.constant =
-            sectionHeight * CGFloat(Section.allCases.count)
+        collectionHeightConstraint.constant = sectionHeight * CGFloat(Section.allCases.count)
     }
-    
+
+    private func calculateItemSize(for collectionView: UICollectionView) -> CGFloat {
+        let totalSpacing = sectionInset * 2 + (columns - 1) * itemSpacing
+        return (collectionView.bounds.width - totalSpacing) / columns
+    }
+
     private func bindViewModel() {
         viewModel.onScheduleUpdated = { [weak self] indexPath in
             self?.trackerSettingsTable.reloadRows(at: [indexPath], with: .none)
@@ -215,7 +210,7 @@ final class NewTrackerViewController: UIViewController {
         let cellsAmount = viewModel.numberOfSettingsSections
         let tableHeight = AppLayout.menuCellHeight * CGFloat(cellsAmount)
         collectionHeightConstraint = emojiColorCollectionView.heightAnchor.constraint(equalToConstant: 0)
-        
+
         tableTopConstraint = menuScrollContainer.topAnchor.constraint(
             equalTo: trackerNameTextField.bottomAnchor,
             constant: interItemSpacing
@@ -260,7 +255,9 @@ final class NewTrackerViewController: UIViewController {
 
     @objc private func createButtonTapped() {
         let tracker = viewModel.buildTracker()
-        onTrackerCreated?(tracker)
+        if let categoryTitle = viewModel.selectedCategory {
+            onTrackerCreated?(tracker, categoryTitle)
+        }
         coordinator?.dismiss()
     }
 
@@ -268,17 +265,21 @@ final class NewTrackerViewController: UIViewController {
 
     @objc private func textFieldDidChange() {
         let text = trackerNameTextField.text ?? ""
-        showWarning(text.count >= maxTrackerNameLenght)
+        showWarning(text.count >= maxTrackerNameLength)
         viewModel.updateTrackerName(text)
     }
 }
 
-// MARK: - UITableViewDelegate & DataSource
+// MARK: - UITableViewDelegate
 
 extension NewTrackerViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        if indexPath.row == 1 {
+        if indexPath.row == 0 {
+            coordinator?.showCategorySection(selectedCategory: viewModel.selectedCategory) { [weak self] category in
+                self?.viewModel.updateCategory(with: category)
+            }
+        } else if indexPath.row == 1 {
             coordinator?.showScheduleSection(selectedDays: viewModel.selectedSchedule) { [weak self] days in
                 self?.viewModel.updateSchedule(with: days)
             }
@@ -286,13 +287,18 @@ extension NewTrackerViewController: UITableViewDelegate {
     }
 }
 
+// MARK: - UITableViewDataSource
+
 extension NewTrackerViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         viewModel.numberOfSettingsSections
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: MenuCell.reuseID, for: indexPath) as? MenuCell else {
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: MenuCell.reuseID,
+            for: indexPath
+        ) as? MenuCell else {
             return UITableViewCell()
         }
         configureCellSeparator(tableView: tableView, cell: cell, indexPath: indexPath)
@@ -320,16 +326,24 @@ extension NewTrackerViewController: UICollectionViewDataSource {
     }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        switch Section(rawValue: section)! {
+        guard let sec = Section(rawValue: section) else { return 0 }
+        switch sec {
         case .emoji: return viewModel.emojis.count
         case .color: return viewModel.colors.count
         }
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        switch Section(rawValue: indexPath.section)! {
+        guard let section = Section(rawValue: indexPath.section) else {
+            return UICollectionViewCell()
+        }
+
+        switch section {
         case .emoji:
-            guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: EmojiCell.reuseID, for: indexPath) as? EmojiCell else {
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: EmojiCell.reuseID,
+                for: indexPath
+            ) as? EmojiCell else {
                 return UICollectionViewCell()
             }
             let emoji = viewModel.emojis[indexPath.item]
@@ -337,7 +351,10 @@ extension NewTrackerViewController: UICollectionViewDataSource {
             return cell
 
         case .color:
-            guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: ColorCell.reuseID, for: indexPath) as? ColorCell else {
+            guard let cell = collectionView.dequeueReusableCell(
+                withReuseIdentifier: ColorCell.reuseID,
+                for: indexPath
+            ) as? ColorCell else {
                 return UICollectionViewCell()
             }
             let color = viewModel.colors[indexPath.item]
@@ -346,15 +363,21 @@ extension NewTrackerViewController: UICollectionViewDataSource {
         }
     }
 
-    func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
+    func collectionView(
+        _ collectionView: UICollectionView,
+        viewForSupplementaryElementOfKind kind: String,
+        at indexPath: IndexPath
+    ) -> UICollectionReusableView {
         guard let header = collectionView.dequeueReusableSupplementaryView(
             ofKind: kind,
             withReuseIdentifier: SectionHeaderView.reuseID,
             for: indexPath
-        ) as? SectionHeaderView else {
+        ) as? SectionHeaderView,
+        let section = Section(rawValue: indexPath.section)
+        else {
             return UICollectionReusableView()
         }
-        header.configure(title: Section(rawValue: indexPath.section)!.title)
+        header.configure(title: section.title)
         return header
     }
 }
@@ -363,7 +386,9 @@ extension NewTrackerViewController: UICollectionViewDataSource {
 
 extension NewTrackerViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        switch Section(rawValue: indexPath.section)! {
+        guard let section = Section(rawValue: indexPath.section) else { return }
+
+        switch section {
         case .emoji:
             let prev = selectedEmojiIndex
             selectedEmojiIndex = indexPath

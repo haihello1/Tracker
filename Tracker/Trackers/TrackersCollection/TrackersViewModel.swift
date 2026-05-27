@@ -30,7 +30,6 @@ final class TrackersViewModel {
 
     private var state: State = .empty {
         didSet {
-            guard oldValue != state else { return }
             onStateChanged?(state)
         }
     }

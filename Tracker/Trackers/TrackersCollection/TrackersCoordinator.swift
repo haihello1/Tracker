@@ -36,30 +36,35 @@ final class TrackersCoordinator: Coordinator, TrackersCoordinatorProtocol {
         
     func openCreateTrackerFlow() {
         let newTrackerNC = UINavigationController()
-        let trackerCreationCoordinator = NewTrackerCoordinator(navigationController: newTrackerNC)
-        
-        trackerCreationCoordinator.onTrackerCreated = { [weak self] tracker in
-            self?.handleNewTracker(tracker)
+        let trackerCreationCoordinator = NewTrackerCoordinator(navigationController: newTrackerNC, categoryStore: categoryStore)
+
+        trackerCreationCoordinator.onTrackerCreated = { [weak self] tracker, categoryTitle in
+            self?.handleNewTracker(tracker, categoryTitle: categoryTitle)
         }
-        
+
         trackerCreationCoordinator.onDismiss = { [weak self] in
             self?.navigationController.dismiss(animated: true)
             self?.child = nil
         }
-        
+
         child = trackerCreationCoordinator
         trackerCreationCoordinator.start()
         newTrackerNC.setNavigationBarHidden(false, animated: false)
         navigationController.present(newTrackerNC, animated: true)
     }
+
     
-    private func handleNewTracker(_ tracker: Tracker) {
+    private func handleNewTracker(_ tracker: Tracker, categoryTitle: String) {
         do {
-            let category = try categoryStore.findOrCreate(title: "Важное")
+            let category = try categoryStore.findOrCreate(title: categoryTitle)
             try trackerStore.addTracker(tracker, to: category)
+            
+            viewModel?.addTracker(tracker, to: categoryTitle)
+            
         } catch {
             assertionFailure("Failed to save tracker: \(error)")
         }
         child = nil
     }
+
 }

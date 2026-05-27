@@ -11,6 +11,7 @@ final class NewTrackerViewModel {
     var onScheduleUpdated: ((IndexPath) -> Void)?
     var onFormValidChanged: ((Bool) -> Void)?
 
+    private(set) var selectedCategory: String?
     private(set) var selectedSchedule: [WeekDay] = []
     private(set) var selectedEmoji: String?
     private(set) var selectedColor: TrackerColor?
@@ -24,7 +25,7 @@ final class NewTrackerViewModel {
     let colors: [TrackerColor] = TrackerColor.allCases
 
     private var settingsList: [CellModel] = [
-        CellModel(title: "Категория", subtitle: "Влажное", type: .chevron),
+        CellModel(title: "Категория", subtitle: nil, type: .chevron),
         CellModel(title: "Расписание", subtitle: nil, type: .chevron)
     ]
 
@@ -51,6 +52,13 @@ final class NewTrackerViewModel {
         notifyFormValidChanged()
     }
 
+    func updateCategory(with category: String) {
+        selectedCategory = category
+        settingsList[0] = CellModel(title: "Категория", subtitle: category, type: .chevron)
+        onScheduleUpdated?(IndexPath(row: 0, section: 0))
+        notifyFormValidChanged()
+    }
+
     func updateSchedule(with days: [WeekDay]) {
         selectedSchedule = days
         let subtitle = makeScheduleSubtitle(from: days)
@@ -71,10 +79,11 @@ final class NewTrackerViewModel {
 
     private var isFormValid: Bool {
         let hasText = !trackerName.trimmingCharacters(in: .whitespaces).isEmpty
+        let hasCategory = selectedCategory != nil
         let hasSchedule = !selectedSchedule.isEmpty
         let hasEmoji = selectedEmoji != nil
         let hasColor = selectedColor != nil
-        return hasText && hasSchedule && hasEmoji && hasColor
+        return hasText && hasCategory && hasSchedule && hasEmoji && hasColor
     }
 
     private func notifyFormValidChanged() {
