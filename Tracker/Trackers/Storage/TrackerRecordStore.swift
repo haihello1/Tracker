@@ -34,7 +34,11 @@ final class TrackerRecordStore: NSObject {
 
     func deleteRecord(_ record: TrackerRecord) throws {
         let request = TrackerRecordCoreData.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", record.id as CVarArg)
+        request.predicate = NSPredicate(
+            format: "id == %@ AND date == %@",
+            record.id as CVarArg,
+            record.date as CVarArg
+        )
         let results = try context.fetch(request)
         results.forEach { context.delete($0) }
         try context.save()

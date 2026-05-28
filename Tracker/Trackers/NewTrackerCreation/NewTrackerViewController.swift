@@ -267,7 +267,7 @@ final class NewTrackerViewController: UIViewController {
 
     @objc private func textFieldDidChange() {
         let text = trackerNameTextField.text ?? ""
-        showWarning(text.count >= maxTrackerNameLength)
+        showWarning(text.count >= AppConstants.maxTrackerNameLength)
         viewModel.updateTrackerName(text)
     }
 }

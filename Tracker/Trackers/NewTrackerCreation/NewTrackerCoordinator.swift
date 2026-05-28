@@ -29,9 +29,13 @@ final class NewTrackerCoordinator: Coordinator, NewTrackerCoordinatorProtocol {
     func showCategorySection(selectedCategory: String?, onConfirm: @escaping (String) -> Void) {
         let viewModel = CategoryViewModel(categoryStore: categoryStore, selectedCategory: selectedCategory)
         viewModel.onCategorySelected = onConfirm
+        viewModel.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+        }
         let vc = CategoryViewController(viewModel: viewModel)
         navigationController.pushViewController(vc, animated: true)
     }
+
 
     func showScheduleSection(selectedDays: [WeekDay], onConfirm: @escaping ([WeekDay]) -> Void) {
         let vc = ScheduleViewController()

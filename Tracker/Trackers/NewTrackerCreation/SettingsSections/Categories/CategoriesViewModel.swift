@@ -6,6 +6,7 @@ final class CategoryViewModel {
 
     var onCategoriesUpdated: (() -> Void)?
     var onCategorySelected: ((String) -> Void)?
+    var onDismiss: (() -> Void)?
 
     // MARK: - Output
 
@@ -44,6 +45,7 @@ final class CategoryViewModel {
         let title = categories[index]
         selectedCategory = title
         onCategorySelected?(title)
+        onDismiss?()
     }
 
     func addCategory(name: String) {

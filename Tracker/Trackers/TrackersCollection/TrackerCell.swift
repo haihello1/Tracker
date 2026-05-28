@@ -10,6 +10,8 @@ final class TrackerCell: UICollectionViewCell {
     
     static let reuseID = "trackerCell"
     
+    private var isProcessingTap = false
+    
     private let emojiLabel = UILabel()
     private let trackerNameLabel = UILabel()
     private let dayCounterLabel = UILabel()
@@ -122,10 +124,10 @@ final class TrackerCell: UICollectionViewCell {
         self.trackerNameLabel.text = viewModel.title
         self.color = viewModel.color.uiColor
         self.dayCounterLabel.text = makeCorrectDayEnding(viewModel.completedDays)
-
+        
         topContainerView.backgroundColor = viewModel.color.uiColor
         completeButton.backgroundColor = viewModel.color.uiColor
-
+        
         let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .bold)
         if viewModel.isCompleted {
             let image = UIImage(systemName: "checkmark", withConfiguration: config)

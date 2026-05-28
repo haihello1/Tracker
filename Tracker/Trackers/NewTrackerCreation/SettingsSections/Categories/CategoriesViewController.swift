@@ -196,7 +196,6 @@ extension CategoryViewController: UITableViewDataSource, UITableViewDelegate {
         tableView.deselectRow(at: indexPath, animated: true)
         viewModel.selectCategory(at: indexPath.row)
         tableView.reloadData()
-        navigationController?.popViewController(animated: true)
     }
 
     func tableView(

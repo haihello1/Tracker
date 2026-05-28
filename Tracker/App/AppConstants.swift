@@ -8,4 +8,5 @@ enum AppLayout {
 
 enum AppConstants {
     static let onboardingShownKey = "onboardingShown"
+    static let maxTrackerNameLength = 37
 }
