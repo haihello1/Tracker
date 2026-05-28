@@ -6,3 +6,7 @@ enum AppLayout {
     static let cornerRadius = 16.0
 }
 
+enum AppConstants {
+    static let onboardingShownKey = "onboardingShown"
+    static let maxTrackerNameLength = 37
+}

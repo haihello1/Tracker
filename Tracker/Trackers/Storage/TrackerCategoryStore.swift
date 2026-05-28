@@ -25,11 +25,10 @@ final class TrackerCategoryStore: NSObject {
         try? fetchedResultsController.performFetch()
     }
 
-    func addCategory(title: String) throws -> TrackerCategoryCoreData {
+    func addCategory(title: String) throws {
         let entity = TrackerCategoryCoreData(context: context)
         entity.title = title
         try context.save()
-        return entity
     }
 
     func findOrCreate(title: String) throws -> TrackerCategoryCoreData {
@@ -38,7 +37,28 @@ final class TrackerCategoryStore: NSObject {
         if let existing = try context.fetch(request).first {
             return existing
         }
-        return try addCategory(title: title)
+        let entity = TrackerCategoryCoreData(context: context)
+        entity.title = title
+        try context.save()
+        return entity
+    }
+
+    func deleteCategory(title: String) throws {
+        let request = TrackerCategoryCoreData.fetchRequest()
+        request.predicate = NSPredicate(format: "title == %@", title)
+        if let existing = try context.fetch(request).first {
+            context.delete(existing)
+            try context.save()
+        }
+    }
+
+    func updateCategory(oldTitle: String, newTitle: String) throws {
+        let request = TrackerCategoryCoreData.fetchRequest()
+        request.predicate = NSPredicate(format: "title == %@", oldTitle)
+        if let existing = try context.fetch(request).first {
+            existing.title = newTitle
+            try context.save()
+        }
     }
 
     var categories: [TrackerCategory] {

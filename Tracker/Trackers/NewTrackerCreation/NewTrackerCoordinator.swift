@@ -1,7 +1,7 @@
 import UIKit
 
 protocol NewTrackerCoordinatorProtocol {
-    func showCategorySection()
+    func showCategorySection(selectedCategory: String?, onConfirm: @escaping (String) -> Void)
     func showScheduleSection(selectedDays: [WeekDay], onConfirm: @escaping ([WeekDay]) -> Void)
     func dismiss()
 }
@@ -9,11 +9,14 @@ protocol NewTrackerCoordinatorProtocol {
 final class NewTrackerCoordinator: Coordinator, NewTrackerCoordinatorProtocol {
     
     var navigationController: UINavigationController
-    var onTrackerCreated: ((Tracker) -> Void)?
+    var onTrackerCreated: ((Tracker, String) -> Void)?
     var onDismiss: (() -> Void)?
     
-    init(navigationController: UINavigationController) {
+    private let categoryStore: TrackerCategoryStore
+    
+    init(navigationController: UINavigationController, categoryStore: TrackerCategoryStore) {
         self.navigationController = navigationController
+        self.categoryStore = categoryStore
     }
 
     func start() {
@@ -23,8 +26,16 @@ final class NewTrackerCoordinator: Coordinator, NewTrackerCoordinatorProtocol {
         navigationController.setViewControllers([vc], animated: true)
     }
     
-    // TODO: будет реализовано в следующем спринте
-    func showCategorySection() {}
+    func showCategorySection(selectedCategory: String?, onConfirm: @escaping (String) -> Void) {
+        let viewModel = CategoryViewModel(categoryStore: categoryStore, selectedCategory: selectedCategory)
+        viewModel.onCategorySelected = onConfirm
+        viewModel.onDismiss = { [weak self] in
+            self?.navigationController.popViewController(animated: true)
+        }
+        let vc = CategoryViewController(viewModel: viewModel)
+        navigationController.pushViewController(vc, animated: true)
+    }
+
 
     func showScheduleSection(selectedDays: [WeekDay], onConfirm: @escaping ([WeekDay]) -> Void) {
         let vc = ScheduleViewController()

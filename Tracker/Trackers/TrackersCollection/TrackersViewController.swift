@@ -2,10 +2,8 @@ import UIKit
 
 final class TrackersViewController: UIViewController {
 
-
     private let viewModel: TrackersViewModel
     private let params: GeometricParams
-
 
     private lazy var emptyView = EmptyView()
 
@@ -50,7 +48,6 @@ final class TrackersViewController: UIViewController {
         return cv
     }()
 
-
     init(viewModel: TrackersViewModel, using params: GeometricParams) {
         self.viewModel = viewModel
         self.params = params
@@ -61,7 +58,6 @@ final class TrackersViewController: UIViewController {
     required init?(coder: NSCoder) {
         nil
     }
-
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -76,20 +72,17 @@ final class TrackersViewController: UIViewController {
         viewModel.viewDidLoad()
     }
 
-
     private func bindViewModel() {
         viewModel.onStateChanged = { [weak self] state in
             guard let self else { return }
             switch state {
             case .content:
                 self.showTrackersCollection()
-                self.trackerCollection.reloadData()
             case .empty:
                 self.showEmptyView(
                     text: "Что будем отслеживать?",
                     image: UIImage(resource: .emptyTrackersView)
                 )
-                
             case .noResultsFound:
                 self.showEmptyView(
                     text: "Ничего не найдено",
@@ -99,10 +92,13 @@ final class TrackersViewController: UIViewController {
         }
 
         viewModel.onDataUpdated = { [weak self] in
-            self?.trackerCollection.reloadData()
+            guard let self else { return }
+            self.trackerCollection.reloadData()
+            if self.viewModel.numberOfSections > 0 {
+                self.showTrackersCollection()
+            }
         }
     }
-
 
     private func showEmptyView(text: String, image: UIImage) {
         trackerCollection.isHidden = true
@@ -114,7 +110,6 @@ final class TrackersViewController: UIViewController {
         emptyView.isHidden = true
         trackerCollection.isHidden = false
     }
-
 
     private func setupUI() {
         view.backgroundColor = .appWhite
@@ -162,6 +157,7 @@ final class TrackersViewController: UIViewController {
     }
 }
 
+// MARK: - UICollectionViewDelegateFlowLayout
 
 extension TrackersViewController: UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
@@ -179,6 +175,7 @@ extension TrackersViewController: UICollectionViewDelegateFlowLayout {
     }
 }
 
+// MARK: - UICollectionViewDataSource
 
 extension TrackersViewController: UICollectionViewDataSource {
     func numberOfSections(in collectionView: UICollectionView) -> Int {
@@ -190,15 +187,24 @@ extension TrackersViewController: UICollectionViewDataSource {
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: TrackerCell.reuseID, for: indexPath) as? TrackerCell else {
+        guard let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: TrackerCell.reuseID,
+            for: indexPath
+        ) as? TrackerCell else {
             return UICollectionViewCell()
         }
+
         let model = viewModel.cellViewModel(at: indexPath)
         cell.configure(with: model)
-        cell.onCompleteButtonTapped = { [weak self] in
-            self?.viewModel.didToggleCompletion(at: indexPath)
 
-         }
+        // MARK: Захватываем cell, а не indexPath — берём актуальный индекс в момент тапа
+        cell.onCompleteButtonTapped = { [weak self, weak cell] in
+            guard let self, let cell,
+                  let currentIndexPath = self.trackerCollection.indexPath(for: cell)
+            else { return }
+            self.viewModel.didToggleCompletion(at: currentIndexPath)
+        }
+
         return cell
     }
 
@@ -217,9 +223,11 @@ extension TrackersViewController: UICollectionViewDataSource {
     }
 }
 
+// MARK: - UICollectionViewDelegate
 
 extension TrackersViewController: UICollectionViewDelegate {}
 
+// MARK: - UISearchBarDelegate
 
 extension TrackersViewController: UISearchBarDelegate {
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {

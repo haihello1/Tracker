@@ -20,6 +20,26 @@ final class AppCoordinator: Coordinator {
      }
 
     func start() {
+        let onboardingShown = UserDefaults.standard.bool(forKey: AppConstants.onboardingShownKey)
+        if onboardingShown {
+            showMainFlow()
+        } else {
+            showOnboarding()
+        }
+    }
+
+    // MARK: - Private
+
+    private func showOnboarding() {
+        let onboardingVC = OnboardingViewController()
+        onboardingVC.onFinish = { [weak self] in
+            self?.showMainFlow()
+        }
+        window?.rootViewController = onboardingVC
+        window?.makeKeyAndVisible()
+    }
+
+    private func showMainFlow() {
         let tabBarController = UITabBarController()
         configureTabBarAppearance(tabBarController)
 
@@ -49,8 +69,18 @@ final class AppCoordinator: Coordinator {
 
         tabBarController.viewControllers = [trackersNC, statisticNC]
 
-        window?.rootViewController = tabBarController
-        window?.makeKeyAndVisible()
+        if let current = window?.rootViewController, !(current is UITabBarController) {
+            UIView.transition(
+                with: window!,
+                duration: 0.4,
+                options: .transitionCrossDissolve,
+                animations: { self.window?.rootViewController = tabBarController },
+                completion: nil
+            )
+        } else {
+            window?.rootViewController = tabBarController
+            window?.makeKeyAndVisible()
+        }
     }
 
     private func configureTabBarAppearance(_ tabBar: UITabBarController) {
