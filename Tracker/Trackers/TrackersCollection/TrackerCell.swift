@@ -9,9 +9,7 @@ private enum Layout {
 final class TrackerCell: UICollectionViewCell {
     
     static let reuseID = "trackerCell"
-    
-    private var isProcessingTap = false
-    
+
     private let emojiLabel = UILabel()
     private let trackerNameLabel = UILabel()
     private let dayCounterLabel = UILabel()
@@ -140,21 +138,20 @@ final class TrackerCell: UICollectionViewCell {
     }
     
     private func makeCorrectDayEnding(_ count: Int) -> String {
-        
         let lastTwoDigits = count % 100
         let lastDigit = count % 10
-        
+
         if lastTwoDigits >= 11 && lastTwoDigits <= 14 {
-            return "\(count) дней"
+            return String(format: "days_many".localized, count)
         }
-        
+
         switch lastDigit {
         case 1:
-            return "\(count) день"
+            return String(format: "days_one".localized, count)
         case 2...4:
-            return "\(count) дня"
+            return String(format: "days_few".localized, count)
         default:
-            return "\(count) дней"
+            return String(format: "days_many".localized, count)
         }
     }
     

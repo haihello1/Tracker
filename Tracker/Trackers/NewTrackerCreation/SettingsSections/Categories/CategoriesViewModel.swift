@@ -1,14 +1,11 @@
 import Foundation
+import os.log
 
 final class CategoryViewModel {
-
-    // MARK: - Bindings
 
     var onCategoriesUpdated: (() -> Void)?
     var onCategorySelected: ((String) -> Void)?
     var onDismiss: (() -> Void)?
-
-    // MARK: - Output
 
     private(set) var categories: [String] = [] {
         didSet { onCategoriesUpdated?() }
@@ -16,25 +13,23 @@ final class CategoryViewModel {
 
     private(set) var selectedCategory: String?
 
-    // MARK: - Private
-
     private let categoryStore: TrackerCategoryStore
 
-    // MARK: - Init
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "CategoryViewModel",
+        category: "CategoryViewModel"
+    )
 
     init(categoryStore: TrackerCategoryStore, selectedCategory: String?) {
         self.categoryStore = categoryStore
         self.selectedCategory = selectedCategory
 
-        // Подписываемся ДО первой загрузки, чтобы не пропустить обновления
-        categoryStore.onDataChanged = { [weak self] in
+        categoryStore.addObserver { [weak self] in
             self?.loadCategories()
         }
 
         loadCategories()
     }
-
-    // MARK: - Public Interface
 
     func loadCategories() {
         categories = categoryStore.categories.map { $0.title }
@@ -49,15 +44,27 @@ final class CategoryViewModel {
     }
 
     func addCategory(name: String) {
-        try? categoryStore.addCategory(title: name)
+        do {
+            try categoryStore.addCategory(title: name)
+        } catch {
+            logger.error("Failed to add category '\(name)': \(error.localizedDescription)")
+        }
     }
 
     func editCategory(oldTitle: String, newTitle: String) {
-        try? categoryStore.updateCategory(oldTitle: oldTitle, newTitle: newTitle)
+        do {
+            try categoryStore.updateCategory(oldTitle: oldTitle, newTitle: newTitle)
+        } catch {
+            logger.error("Failed to update category '\(oldTitle)' -> '\(newTitle)': \(error.localizedDescription)")
+        }
     }
 
     func deleteCategory(title: String) {
-        try? categoryStore.deleteCategory(title: title)
+        do {
+            try categoryStore.deleteCategory(title: title)
+        } catch {
+            logger.error("Failed to delete category '\(title)': \(error.localizedDescription)")
+        }
     }
 
     func isSelected(_ title: String) -> Bool {
