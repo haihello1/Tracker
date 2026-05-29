@@ -14,7 +14,10 @@ enum MockData {
     ]
 }
 
-// MARK: - ViewModel
+enum NewTrackerMode {
+    case create
+    case edit(tracker: Tracker, categoryTitle: String, completedDays: Int)
+}
 
 final class NewTrackerViewModel {
 
@@ -29,14 +32,64 @@ final class NewTrackerViewModel {
     let emojis: [String] = MockData.emojis
     let colors: [TrackerColor] = TrackerColor.allCases
 
-    private var settingsList: [CellModel] = [
-        CellModel(title: "Категория", subtitle: nil, type: .chevron),
-        CellModel(title: "Расписание", subtitle: nil, type: .chevron)
-    ]
+    let mode: NewTrackerMode
 
+    // Для режима редактирования
+    var initialName: String? {
+        if case .edit(let tracker, _, _) = mode { return tracker.name }
+        return nil
+    }
+
+    var initialEmoji: String? {
+        if case .edit(let tracker, _, _) = mode { return tracker.emoji }
+        return nil
+    }
+
+    var initialColor: TrackerColor? {
+        if case .edit(let tracker, _, _) = mode { return tracker.color }
+        return nil
+    }
+
+    var completedDays: Int {
+        if case .edit(_, _, let days) = mode { return days }
+        return 0
+    }
+
+    var editingTrackerId: UUID? {
+        if case .edit(let tracker, _, _) = mode { return tracker.id }
+        return nil
+    }
+
+    private var settingsList: [CellModel]
     private var trackerName: String = ""
 
     var numberOfSettingsSections: Int { settingsList.count }
+
+    init(mode: NewTrackerMode = .create) {
+        self.mode = mode
+
+        settingsList = [
+            CellModel(title: "Категория", subtitle: nil, type: .chevron),
+            CellModel(title: "Расписание", subtitle: nil, type: .chevron)
+        ]
+
+        // Предзаполняем при редактировании
+        if case .edit(let tracker, let categoryTitle, _) = mode {
+            trackerName = tracker.name
+            selectedEmoji = tracker.emoji
+            selectedColor = tracker.color
+            selectedSchedule = tracker.schedule
+            selectedCategory = categoryTitle
+
+            let scheduleSubtitle = makeScheduleSubtitle(from: tracker.schedule)
+            settingsList = [
+                CellModel(title: "Категория", subtitle: categoryTitle, type: .chevron),
+                CellModel(title: "Расписание", subtitle: scheduleSubtitle, type: .chevron)
+            ]
+            
+            notifyFormValidChanged()
+        }
+    }
 
     func cellModel(forRowAt indexPath: IndexPath) -> CellModel {
         settingsList[indexPath.row]
@@ -73,8 +126,14 @@ final class NewTrackerViewModel {
     }
 
     func buildTracker() -> Tracker {
+        let id: UUID
+        if case .edit(let tracker, _, _) = mode {
+            id = tracker.id
+        } else {
+            id = UUID()
+        }
         return Tracker(
-            id: UUID(),
+            id: id,
             name: trackerName,
             color: selectedColor ?? .red,
             emoji: selectedEmoji ?? "😊",

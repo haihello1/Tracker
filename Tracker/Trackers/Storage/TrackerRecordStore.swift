@@ -3,8 +3,7 @@ import CoreData
 final class TrackerRecordStore: NSObject {
     private let context: NSManagedObjectContext
     private var fetchedResultsController: NSFetchedResultsController<TrackerRecordCoreData>
-
-    var onDataChanged: (() -> Void)?
+    private var observers: [() -> Void] = []
 
     init(context: NSManagedObjectContext) {
         self.context = context
@@ -23,6 +22,14 @@ final class TrackerRecordStore: NSObject {
 
         fetchedResultsController.delegate = self
         try? fetchedResultsController.performFetch()
+    }
+
+    func addObserver(_ observer: @escaping () -> Void) {
+        observers.append(observer)
+    }
+
+    private func notifyObservers() {
+        observers.forEach { $0() }
     }
 
     func addRecord(_ record: TrackerRecord) throws {
@@ -58,6 +65,6 @@ final class TrackerRecordStore: NSObject {
 
 extension TrackerRecordStore: NSFetchedResultsControllerDelegate {
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
-        onDataChanged?()
+        notifyObservers()
     }
 }

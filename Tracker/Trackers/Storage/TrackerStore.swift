@@ -4,7 +4,7 @@ final class TrackerStore: NSObject {
     private let context: NSManagedObjectContext
     private var fetchedResultsController: NSFetchedResultsController<TrackerCoreData>
 
-    var onDataChanged: (() -> Void)?
+    private var observers: [() -> Void] = []
 
     init(context: NSManagedObjectContext) {
         self.context = context
@@ -25,6 +25,14 @@ final class TrackerStore: NSObject {
         try? fetchedResultsController.performFetch()
     }
 
+    func addObserver(_ observer: @escaping () -> Void) {
+        observers.append(observer)
+    }
+
+    private func notifyObservers() {
+        observers.forEach { $0() }
+    }
+    
     func addTracker(_ tracker: Tracker, to category: TrackerCategoryCoreData) throws {
         let entity = TrackerCoreData(context: context)
         entity.id = tracker.id
@@ -57,6 +65,6 @@ final class TrackerStore: NSObject {
 
 extension TrackerStore: NSFetchedResultsControllerDelegate {
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
-        onDataChanged?()
+        notifyObservers()
     }
 }

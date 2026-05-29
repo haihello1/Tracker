@@ -4,6 +4,7 @@ final class TrackersViewController: UIViewController {
 
     private let viewModel: TrackersViewModel
     private let params: GeometricParams
+    weak var coordinator: TrackersCoordinatorProtocol?
 
     private lazy var emptyView = EmptyView()
 
@@ -18,17 +19,29 @@ final class TrackersViewController: UIViewController {
 
     private lazy var sectionNameLabel: UILabel = {
         let label = UILabel()
-        label.text = "Трекеры"
+        label.text = "trackers_title".localized
         label.font = .ypBold34
         return label
     }()
 
     private lazy var searchBar: UISearchBar = {
         let sb = UISearchBar()
-        sb.placeholder = "Поиск"
+        sb.placeholder = "search_placeholder".localized
         sb.backgroundImage = UIImage()
         sb.delegate = self
         return sb
+    }()
+
+    private lazy var filtersButton: UIButton = {
+        var config = UIButton.Configuration.filled()
+        config.title = "filters_button".localized
+        config.background.cornerRadius = AppLayout.cornerRadius
+        config.baseBackgroundColor = .appBlue
+        config.baseForegroundColor = .appWhite
+        let btn = UIButton(configuration: config)
+        btn.addTarget(self, action: #selector(didTapFiltersButton), for: .touchUpInside)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        return btn
     }()
 
     private lazy var trackerCollection: UICollectionView = {
@@ -45,6 +58,7 @@ final class TrackersViewController: UIViewController {
             forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
             withReuseIdentifier: HeaderView.reuseID
         )
+        cv.contentInset = UIEdgeInsets(top: 0, left: 0, bottom: 60, right: 0)
         return cv
     }()
 
@@ -55,9 +69,7 @@ final class TrackersViewController: UIViewController {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
+    required init?(coder: NSCoder) { nil }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -66,10 +78,22 @@ final class TrackersViewController: UIViewController {
         setupConstraints()
         bindViewModel()
         showEmptyView(
-            text: "Что будем отслеживать?",
+            text: "empty_trackers_text".localized,
             image: UIImage(resource: .emptyTrackersView)
         )
         viewModel.viewDidLoad()
+        AnalyticsService.report(
+            event: AnalyticsService.Event.open,
+            screen: AnalyticsService.Screen.main
+        )
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        AnalyticsService.report(
+            event: AnalyticsService.Event.close,
+            screen: AnalyticsService.Screen.main
+        )
     }
 
     private func bindViewModel() {
@@ -79,13 +103,15 @@ final class TrackersViewController: UIViewController {
             case .content:
                 self.showTrackersCollection()
             case .empty:
+                self.filtersButton.isHidden = true
                 self.showEmptyView(
-                    text: "Что будем отслеживать?",
+                    text: "empty_trackers_text".localized,
                     image: UIImage(resource: .emptyTrackersView)
                 )
             case .noResultsFound:
+                self.filtersButton.isHidden = !self.viewModel.hasTrackersForCurrentDay
                 self.showEmptyView(
-                    text: "Ничего не найдено",
+                    text: "empty_search_text".localized,
                     image: UIImage(resource: .noTrackersFound)
                 )
             }
@@ -94,14 +120,21 @@ final class TrackersViewController: UIViewController {
         viewModel.onDataUpdated = { [weak self] in
             guard let self else { return }
             self.trackerCollection.reloadData()
+            let hasTrackersForDay = self.viewModel.hasTrackersForCurrentDay
+            self.filtersButton.isHidden = !hasTrackersForDay
             if self.viewModel.numberOfSections > 0 {
                 self.showTrackersCollection()
             }
+        }
+
+        viewModel.onDateChanged = { [weak self] date in
+            self?.datePicker.date = date
         }
     }
 
     private func showEmptyView(text: String, image: UIImage) {
         trackerCollection.isHidden = true
+        filtersButton.isHidden = true
         emptyView.isHidden = false
         emptyView.configure(text: text, image: image)
     }
@@ -109,11 +142,12 @@ final class TrackersViewController: UIViewController {
     private func showTrackersCollection() {
         emptyView.isHidden = true
         trackerCollection.isHidden = false
+        filtersButton.isHidden = false
     }
 
     private func setupUI() {
         view.backgroundColor = .appWhite
-        view.addSubviews(sectionNameLabel, searchBar, emptyView, trackerCollection)
+        view.addSubviews(sectionNameLabel, searchBar, emptyView, trackerCollection, filtersButton)
     }
 
     private func setupNavBar() {
@@ -145,15 +179,45 @@ final class TrackersViewController: UIViewController {
             emptyView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             emptyView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             emptyView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+
+            filtersButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            filtersButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            filtersButton.heightAnchor.constraint(equalToConstant: 50),
+            filtersButton.widthAnchor.constraint(equalToConstant: 114)
         ])
     }
 
     @objc private func didTapAddButton() {
+        AnalyticsService.report(
+            event: AnalyticsService.Event.click,
+            screen: AnalyticsService.Screen.main,
+            item: AnalyticsService.Item.addTrack
+        )
         viewModel.didTapAddTrackersButton()
     }
 
     @objc private func datePickerValueChanged(_ sender: UIDatePicker) {
         viewModel.didSelectDate(sender.date)
+    }
+
+    @objc private func didTapFiltersButton() {
+        AnalyticsService.report(
+            event: AnalyticsService.Event.click,
+            screen: AnalyticsService.Screen.main,
+            item: AnalyticsService.Item.filter
+        )
+        let filterVC = FilterViewController(selectedFilter: viewModel.currentFilter)
+        filterVC.delegate = self
+        let nav = UINavigationController(rootViewController: filterVC)
+        present(nav, animated: true)
+    }
+}
+
+// MARK: - FilterViewControllerDelegate
+
+extension TrackersViewController: FilterViewControllerDelegate {
+    func didSelectFilter(_ filter: TrackerFilter) {
+        viewModel.didSelectFilter(filter)
     }
 }
 
@@ -197,11 +261,15 @@ extension TrackersViewController: UICollectionViewDataSource {
         let model = viewModel.cellViewModel(at: indexPath)
         cell.configure(with: model)
 
-        // MARK: Захватываем cell, а не indexPath — берём актуальный индекс в момент тапа
         cell.onCompleteButtonTapped = { [weak self, weak cell] in
             guard let self, let cell,
                   let currentIndexPath = self.trackerCollection.indexPath(for: cell)
             else { return }
+            AnalyticsService.report(
+                event: AnalyticsService.Event.click,
+                screen: AnalyticsService.Screen.main,
+                item: AnalyticsService.Item.track
+            )
             self.viewModel.didToggleCompletion(at: currentIndexPath)
         }
 
@@ -225,7 +293,45 @@ extension TrackersViewController: UICollectionViewDataSource {
 
 // MARK: - UICollectionViewDelegate
 
-extension TrackersViewController: UICollectionViewDelegate {}
+extension TrackersViewController: UICollectionViewDelegate {
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            guard let self else { return UIMenu(title: "", children: []) }
+
+            let editAction = UIAction(title: "Редактировать") { [weak self] _ in
+                guard let self else { return }
+                AnalyticsService.report(
+                    event: AnalyticsService.Event.click,
+                    screen: AnalyticsService.Screen.main,
+                    item: AnalyticsService.Item.edit
+                )
+                let (tracker, categoryTitle, completedDays) = self.viewModel.trackerAndCategory(at: indexPath)
+                self.coordinator?.openEditTrackerFlow(
+                    tracker: tracker,
+                    categoryTitle: categoryTitle,
+                    completedDays: completedDays
+                )
+            }
+
+            let deleteAction = UIAction(title: "Удалить", attributes: .destructive) { [weak self] _ in
+                guard let self else { return }
+                AnalyticsService.report(
+                    event: AnalyticsService.Event.click,
+                    screen: AnalyticsService.Screen.main,
+                    item: AnalyticsService.Item.delete
+                )
+                self.showDeleteConfirmation(for: indexPath)
+            }
+
+            return UIMenu(title: "", children: [editAction, deleteAction])
+        }
+    }
+}
 
 // MARK: - UISearchBarDelegate
 
@@ -238,5 +344,23 @@ extension TrackersViewController: UISearchBarDelegate {
         searchBar.text = ""
         searchBar.resignFirstResponder()
         viewModel.didChangeSearchQuery("")
+    }
+}
+
+// MARK: - Private helpers
+
+private extension TrackersViewController {
+
+    func showDeleteConfirmation(for indexPath: IndexPath) {
+        let alert = UIAlertController(
+            title: "Уверены что хотите удалить трекер?",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Удалить", style: .destructive) { [weak self] _ in
+            self?.viewModel.deleteTracker(at: indexPath)
+        })
+        alert.addAction(UIAlertAction(title: "Отменить", style: .cancel))
+        present(alert, animated: true)
     }
 }

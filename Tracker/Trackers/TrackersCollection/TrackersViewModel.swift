@@ -1,5 +1,3 @@
-// TrackersViewModel.swift
-
 import Foundation
 
 final class TrackersViewModel {
@@ -12,8 +10,8 @@ final class TrackersViewModel {
 
     var onStateChanged: ((State) -> Void)?
     var onDataUpdated: (() -> Void)?
-
-    private weak var coordinator: TrackersCoordinatorProtocol?
+    var onAddTrackerTapped: (() -> Void)?
+    var onDateChanged: ((Date) -> Void)?
 
     private var categories: [TrackerCategory] = []
 
@@ -21,40 +19,35 @@ final class TrackersViewModel {
     private let recordStore: TrackerRecordStore
 
     private var completedTrackers: Set<TrackerRecord> = []
-    private var currentDate: Date = Date()
+    private(set) var currentDate: Date = Date()
     private var searchQuery: String = ""
-
-    // MARK: Защита от повторных быстрых нажатий
     private var processingRecords: Set<TrackerRecord> = []
+    private(set) var currentFilter: TrackerFilter = .all
 
     private var visibleCategories: [TrackerCategory] = [] {
         didSet { updateState() }
     }
 
     private var state: State = .empty {
-        didSet {
-            onStateChanged?(state)
-        }
+        didSet { onStateChanged?(state) }
     }
 
     init(
-        coordinator: TrackersCoordinatorProtocol,
         categoryStore: TrackerCategoryStore,
         recordStore: TrackerRecordStore
     ) {
-        self.coordinator = coordinator
         self.categoryStore = categoryStore
         self.recordStore = recordStore
 
         self.categories = categoryStore.categories
         self.completedTrackers = recordStore.records
 
-        categoryStore.onDataChanged = { [weak self] in
+        categoryStore.addObserver { [weak self] in
             self?.categories = categoryStore.categories
             self?.applyFilters()
         }
 
-        recordStore.onDataChanged = { [weak self] in
+        recordStore.addObserver { [weak self] in
             self?.completedTrackers = recordStore.records
             self?.processingRecords.removeAll()
             self?.applyFilters()
@@ -68,7 +61,16 @@ final class TrackersViewModel {
     var numberOfSections: Int {
         visibleCategories.count
     }
-
+    
+    var hasTrackersForCurrentDay: Bool {
+        let weekday = WeekDay.from(date: currentDate)
+        return categories.contains { category in
+            category.trackerCollection.contains { tracker in
+                tracker.schedule.contains(weekday)
+            }
+        }
+    }
+    
     func numberOfItems(in section: Int) -> Int {
         visibleCategories[section].trackerCollection.count
     }
@@ -98,7 +100,7 @@ final class TrackersViewModel {
     }
 
     func didTapAddTrackersButton() {
-        coordinator?.openCreateTrackerFlow()
+        onAddTrackerTapped?()
     }
 
     func didSelectDate(_ date: Date) {
@@ -111,6 +113,15 @@ final class TrackersViewModel {
         applyFilters()
     }
 
+    func didSelectFilter(_ filter: TrackerFilter) {
+        currentFilter = filter
+        if filter == .today {
+            currentDate = Date()
+            onDateChanged?(currentDate)
+        }
+        applyFilters()
+    }
+
     func didToggleCompletion(at indexPath: IndexPath) {
         let tracker = visibleCategories[indexPath.section].trackerCollection[indexPath.item]
 
@@ -118,9 +129,7 @@ final class TrackersViewModel {
 
         let record = TrackerRecord(id: tracker.id, date: currentDate)
 
-        // MARK: Блокируем повторный тап
         guard !processingRecords.contains(record) else { return }
-
         processingRecords.insert(record)
 
         do {
@@ -134,48 +143,64 @@ final class TrackersViewModel {
             assertionFailure("Failed to toggle record: \(error)")
         }
     }
-
-    func addTracker(_ tracker: Tracker, to categoryTitle: String) {
-        if let index = categories.firstIndex(where: { $0.title == categoryTitle }) {
-            let old = categories[index]
-
-            categories[index] = TrackerCategory(
-                title: old.title,
-                trackerCollection: old.trackerCollection + [tracker]
-            )
-        } else {
-            categories.append(
-                TrackerCategory(
-                    title: categoryTitle,
-                    trackerCollection: [tracker]
-                )
-            )
-        }
-
-        applyFilters()
+    
+    func trackerAndCategory(at indexPath: IndexPath) -> (Tracker, String, Int) {
+        let tracker = visibleCategories[indexPath.section].trackerCollection[indexPath.item]
+        let categoryTitle = visibleCategories[indexPath.section].title
+        let completedDays = completedTrackers.filter { $0.id == tracker.id }.count
+        return (tracker, categoryTitle, completedDays)
     }
+
+    func editTracker(_ tracker: Tracker, categoryTitle: String) {
+        do {
+            try categoryStore.updateTracker(tracker, categoryTitle: categoryTitle)
+        } catch {
+            assertionFailure("Failed to edit tracker: \(error)")
+        }
+    }
+    
+    func deleteTracker(at indexPath: IndexPath) {
+        let tracker = visibleCategories[indexPath.section].trackerCollection[indexPath.item]
+        do {
+            try categoryStore.deleteTracker(id: tracker.id)
+        } catch {
+            assertionFailure("Failed to delete tracker: \(error)")
+        }
+    }
+
+    // MARK: - Private
 
     private func applyFilters() {
         let weekday = WeekDay.from(date: currentDate)
 
-        visibleCategories = categories.compactMap { category in
-            let filtered = category.trackerCollection.filter { tracker in
+        let filtered = categories.compactMap { category -> TrackerCategory? in
+            let trackers = category.trackerCollection.filter { tracker in
                 let matchesSchedule = tracker.schedule.contains(weekday)
-
                 let matchesQuery = searchQuery.isEmpty
                     || tracker.name.localizedCaseInsensitiveContains(searchQuery)
+                guard matchesSchedule && matchesQuery else { return false }
 
-                return matchesSchedule && matchesQuery
+                switch currentFilter {
+                case .all, .today:
+                    return true
+                case .completed:
+                    return completedTrackers.contains {
+                        $0.id == tracker.id &&
+                        Calendar.current.isDate($0.date, inSameDayAs: currentDate)
+                    }
+                case .uncompleted:
+                    return !completedTrackers.contains {
+                        $0.id == tracker.id &&
+                        Calendar.current.isDate($0.date, inSameDayAs: currentDate)
+                    }
+                }
             }
-
-            return filtered.isEmpty
+            return trackers.isEmpty
                 ? nil
-                : TrackerCategory(
-                    title: category.title,
-                    trackerCollection: filtered
-                )
+                : TrackerCategory(title: category.title, trackerCollection: trackers)
         }
 
+        visibleCategories = filtered
         onDataUpdated?()
     }
 

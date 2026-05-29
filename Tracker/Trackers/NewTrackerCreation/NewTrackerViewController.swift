@@ -3,6 +3,7 @@ import UIKit
 final class NewTrackerViewController: UIViewController {
 
     var onTrackerCreated: ((Tracker, String) -> Void)?
+    var onTrackerEdited: ((Tracker, String) -> Void)?
     var coordinator: NewTrackerCoordinatorProtocol?
     private let viewModel: NewTrackerViewModel
 
@@ -18,9 +19,10 @@ final class NewTrackerViewController: UIViewController {
 
     private var selectedEmojiIndex: IndexPath?
     private var selectedColorIndex: IndexPath?
-    
+
     private var collectionHeightConstraint: NSLayoutConstraint?
     private let maxTrackerNameLenght = 38
+
     private enum Section: Int, CaseIterable {
         case emoji = 0
         case color = 1
@@ -32,6 +34,16 @@ final class NewTrackerViewController: UIViewController {
             }
         }
     }
+
+    // MARK: - UI
+
+    private lazy var daysLabel: UILabel = {
+        let lbl = UILabel()
+        lbl.font = .ypBold32
+        lbl.textAlignment = .center
+        lbl.translatesAutoresizingMaskIntoConstraints = false
+        return lbl
+    }()
 
     private lazy var cancelButton: UIButton = {
         var config = UIButton.Configuration.bordered()
@@ -48,7 +60,6 @@ final class NewTrackerViewController: UIViewController {
 
     private lazy var createButton: UIButton = {
         var config = UIButton.Configuration.filled()
-        config.title = "Создать"
         config.background.cornerRadius = AppLayout.cornerRadius
         config.baseBackgroundColor = .appBlack
         config.baseForegroundColor = .appWhite
@@ -74,12 +85,17 @@ final class NewTrackerViewController: UIViewController {
     private let columns: CGFloat = 6
     private let rowsPerSection: CGFloat = 3
 
+    // MARK: - Init
+
     init(viewModel: NewTrackerViewModel) {
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+    
+    // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -90,6 +106,7 @@ final class NewTrackerViewController: UIViewController {
         setupConstraints()
         setupWarning()
         bindViewModel()
+        prefillIfEditing()
     }
 
     override func viewDidLayoutSubviews() {
@@ -105,6 +122,44 @@ final class NewTrackerViewController: UIViewController {
 
         collectionHeightConstraint?.constant =
             sectionHeight * CGFloat(Section.allCases.count)
+    }
+
+    // MARK: - Private
+
+    private func prefillIfEditing() {
+        guard case .edit = viewModel.mode else { return }
+
+        trackerNameTextField.text = viewModel.initialName
+        viewModel.updateTrackerName(viewModel.initialName ?? "")
+
+        let days = viewModel.completedDays
+        daysLabel.text = makeCorrectDayEnding(days)
+
+        if let emoji = viewModel.initialEmoji,
+           let index = viewModel.emojis.firstIndex(of: emoji) {
+            selectedEmojiIndex = IndexPath(item: index, section: Section.emoji.rawValue)
+        }
+
+        if let color = viewModel.initialColor,
+           let index = viewModel.colors.firstIndex(of: color) {
+            selectedColorIndex = IndexPath(item: index, section: Section.color.rawValue)
+        }
+
+        emojiColorCollectionView.reloadData()
+    }
+
+    private func makeCorrectDayEnding(_ count: Int) -> String {
+        let lastTwoDigits = count % 100
+        let lastDigit = count % 10
+
+        if lastTwoDigits >= 11 && lastTwoDigits <= 14 {
+            return String(format: "days_many".localized, count)
+        }
+        switch lastDigit {
+        case 1: return String(format: "days_one".localized, count)
+        case 2...4: return String(format: "days_few".localized, count)
+        default: return String(format: "days_many".localized, count)
+        }
     }
 
     private func calculateItemSize(for collectionView: UICollectionView) -> CGFloat {
@@ -169,8 +224,13 @@ final class NewTrackerViewController: UIViewController {
     }
 
     private func setupNavBar() {
-        navigationItem.title = "Новая привычка"
+        let isEditing: Bool
+        if case .edit = viewModel.mode { isEditing = true } else { isEditing = false }
+
+        navigationItem.title = isEditing ? "Редактирование привычки" : "Новая привычка"
         navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.appBlack]
+
+        createButton.configuration?.title = isEditing ? "Сохранить" : "Создать"
     }
 
     private func setupUI() {
@@ -196,6 +256,14 @@ final class NewTrackerViewController: UIViewController {
         menuScrollContainer.addSubview(trackerSettingsTable)
         menuScrollContainer.addSubview(emojiColorCollectionView)
 
+        let isEditMode: Bool
+        if case .edit = viewModel.mode { isEditMode = true } else { isEditMode = false }
+
+        // daysLabel добавляется в view, а не в scrollContainer
+        if isEditMode {
+            view.addSubview(daysLabel)
+        }
+
         [trackerNameTextField, textFieldWarning, menuScrollContainer, buttonsStack].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
@@ -212,52 +280,85 @@ final class NewTrackerViewController: UIViewController {
 
         let heightConstraint = emojiColorCollectionView.heightAnchor.constraint(equalToConstant: 0)
         collectionHeightConstraint = heightConstraint
-        
-        tableTopConstraint = menuScrollContainer.topAnchor.constraint(
-            equalTo: trackerNameTextField.bottomAnchor,
-            constant: interItemSpacing
+
+        let isEditMode: Bool
+        if case .edit = viewModel.mode { isEditMode = true } else { isEditMode = false }
+
+        // tableTopConstraint — таблица всегда привязана к верху menuScrollContainer
+        tableTopConstraint = trackerSettingsTable.topAnchor.constraint(
+            equalTo: menuScrollContainer.topAnchor,
+            constant: tableTopSpacingDefault
         )
 
-        NSLayoutConstraint.activate([
+        var constraints: [NSLayoutConstraint] = [
+            // TextField
             trackerNameTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: horizontalSpacing),
             trackerNameTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -horizontalSpacing),
-            trackerNameTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: interItemSpacing),
             trackerNameTextField.heightAnchor.constraint(equalToConstant: 75),
 
+            // Warning
             textFieldWarning.topAnchor.constraint(equalTo: trackerNameTextField.bottomAnchor, constant: warningSpacing),
             textFieldWarning.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             textFieldWarning.heightAnchor.constraint(equalToConstant: warningHeight),
 
-            tableTopConstraint,
+            // ScrollContainer — топ зависит от режима, добавляется ниже
             menuScrollContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             menuScrollContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             menuScrollContainer.bottomAnchor.constraint(equalTo: buttonsStack.topAnchor),
 
-            trackerSettingsTable.topAnchor.constraint(equalTo: menuScrollContainer.topAnchor),
+            // SettingsTable
             trackerSettingsTable.leadingAnchor.constraint(equalTo: menuScrollContainer.leadingAnchor, constant: horizontalSpacing),
             trackerSettingsTable.trailingAnchor.constraint(equalTo: menuScrollContainer.trailingAnchor, constant: -horizontalSpacing),
             trackerSettingsTable.widthAnchor.constraint(equalTo: menuScrollContainer.widthAnchor, constant: -horizontalSpacing * 2),
             trackerSettingsTable.heightAnchor.constraint(equalToConstant: tableHeight),
+            tableTopConstraint,
 
+            // CollectionView
+            heightConstraint,
             emojiColorCollectionView.topAnchor.constraint(equalTo: trackerSettingsTable.bottomAnchor, constant: interItemSpacing),
             emojiColorCollectionView.leadingAnchor.constraint(equalTo: menuScrollContainer.leadingAnchor),
             emojiColorCollectionView.trailingAnchor.constraint(equalTo: menuScrollContainer.trailingAnchor),
             emojiColorCollectionView.widthAnchor.constraint(equalTo: menuScrollContainer.widthAnchor),
-            heightConstraint,
             emojiColorCollectionView.bottomAnchor.constraint(equalTo: menuScrollContainer.bottomAnchor),
 
+            // Buttons
             buttonsStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             buttonsStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             buttonsStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             buttonsStack.heightAnchor.constraint(equalToConstant: 60),
-        ])
+        ]
+
+        if isEditMode {
+            // Порядок сверху вниз:
+            // safeArea → daysLabel → textField → scrollContainer
+            constraints += [
+                daysLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: interItemSpacing),
+                daysLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+
+                trackerNameTextField.topAnchor.constraint(equalTo: daysLabel.bottomAnchor, constant: interItemSpacing),
+
+                menuScrollContainer.topAnchor.constraint(equalTo: trackerNameTextField.bottomAnchor, constant: interItemSpacing),
+            ]
+        } else {
+            constraints += [
+                trackerNameTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: interItemSpacing),
+
+                menuScrollContainer.topAnchor.constraint(equalTo: trackerNameTextField.bottomAnchor, constant: interItemSpacing),
+            ]
+        }
+
+        NSLayoutConstraint.activate(constraints)
     }
 
     @objc private func dismissKeyboard() { view.endEditing(true) }
 
     @objc private func createButtonTapped() {
         let tracker = viewModel.buildTracker()
-        if let categoryTitle = viewModel.selectedCategory {
+        guard let categoryTitle = viewModel.selectedCategory else { return }
+
+        if case .edit = viewModel.mode {
+            onTrackerEdited?(tracker, categoryTitle)
+        } else {
             onTrackerCreated?(tracker, categoryTitle)
         }
         coordinator?.dismiss()
@@ -339,15 +440,12 @@ extension NewTrackerViewController: UICollectionViewDataSource {
         guard let section = Section(rawValue: indexPath.section) else {
             return UICollectionViewCell()
         }
-
         switch section {
         case .emoji:
             guard let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: EmojiCell.reuseID,
                 for: indexPath
-            ) as? EmojiCell else {
-                return UICollectionViewCell()
-            }
+            ) as? EmojiCell else { return UICollectionViewCell() }
             let emoji = viewModel.emojis[indexPath.item]
             cell.configure(emoji: emoji, isSelected: indexPath == selectedEmojiIndex)
             return cell
@@ -356,9 +454,7 @@ extension NewTrackerViewController: UICollectionViewDataSource {
             guard let cell = collectionView.dequeueReusableCell(
                 withReuseIdentifier: ColorCell.reuseID,
                 for: indexPath
-            ) as? ColorCell else {
-                return UICollectionViewCell()
-            }
+            ) as? ColorCell else { return UICollectionViewCell() }
             let color = viewModel.colors[indexPath.item]
             cell.configure(color: color.uiColor, isSelected: indexPath == selectedColorIndex)
             return cell
@@ -376,9 +472,7 @@ extension NewTrackerViewController: UICollectionViewDataSource {
             for: indexPath
         ) as? SectionHeaderView,
         let section = Section(rawValue: indexPath.section)
-        else {
-            return UICollectionReusableView()
-        }
+        else { return UICollectionReusableView() }
         header.configure(title: section.title)
         return header
     }
@@ -389,7 +483,6 @@ extension NewTrackerViewController: UICollectionViewDataSource {
 extension NewTrackerViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let section = Section(rawValue: indexPath.section) else { return }
-
         switch section {
         case .emoji:
             let prev = selectedEmojiIndex
@@ -418,13 +511,9 @@ extension NewTrackerViewController: UICollectionViewDelegateFlowLayout {
         return CGSize(width: itemSize, height: itemSize)
     }
 
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        itemSpacing
-    }
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat { itemSpacing }
 
-    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-        0
-    }
+    func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat { 0 }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
         UIEdgeInsets(top: 0, left: sectionInset, bottom: 0, right: sectionInset)

@@ -43,21 +43,28 @@ final class AppCoordinator: Coordinator {
         let tabBarController = UITabBarController()
         configureTabBarAppearance(tabBarController)
 
+        // Сначала создаём recordStore
+        let recordStore = TrackerRecordStore(context: coreDataStack.context)
+
         let trackersNC = UINavigationController()
         let trackersCoordinator = TrackersCoordinator(
             navigationController: trackersNC,
-            coreDataStack: coreDataStack
+            coreDataStack: coreDataStack,
+            sharedRecordStore: recordStore
         )
         trackersNC.tabBarItem = UITabBarItem(
-            title: "Tracker",
+            title: "tab_trackers".localized,
             image: UIImage(resource: .trackerSectionLogo),
             selectedImage: UIImage(resource: .trackerSectionLogo)
         )
 
         let statisticNC = UINavigationController()
-        let statisticCoordinator = StatisticCoordinator(navigationController: statisticNC)
+        let statisticCoordinator = StatisticCoordinator(
+            navigationController: statisticNC,
+            recordStore: recordStore
+        )
         statisticNC.tabBarItem = UITabBarItem(
-            title: "Statistic",
+            title: "tab_statistics".localized,
             image: UIImage(resource: .statisticSectionLogo),
             selectedImage: UIImage(resource: .statisticSectionLogo)
         )
@@ -70,8 +77,9 @@ final class AppCoordinator: Coordinator {
         tabBarController.viewControllers = [trackersNC, statisticNC]
 
         if let current = window?.rootViewController, !(current is UITabBarController) {
+            guard let window else { return }
             UIView.transition(
-                with: window!,
+                with: window,
                 duration: 0.4,
                 options: .transitionCrossDissolve,
                 animations: { self.window?.rootViewController = tabBarController },

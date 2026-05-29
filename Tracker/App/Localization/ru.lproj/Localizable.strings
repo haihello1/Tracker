@@ -1,0 +1,17 @@
+/* 
+  Localizable.strings
+  Tracker
+
+*/
+
+"trackers_title" = "Трекеры";
+"search_placeholder" = "Поиск";
+"filters_button" = "Фильтры";
+"tab_trackers" = "Трекеры";
+"tab_statistics" = "Статистика";
+"empty_trackers_text" = "Что будем отслеживать?";
+"empty_search_text" = "Ничего не найдено";
+
+"days_one" = "%d день";
+"days_few" = "%d дня";
+"days_many" = "%d дней";
